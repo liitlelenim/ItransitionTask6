@@ -720,7 +720,7 @@ public static partial class PolishData
 
 public static partial class GermanData
 {
-    public static string[] Adresses =
+    public static string[] Addresses =
     {
         "Berlin, Strasse: Appfel 596, 57574",
         "Berlin, St. Appfel 748 57574",
