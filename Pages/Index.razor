@@ -1,3 +1,125 @@
 ﻿@page "/"
+@using System.Diagnostics
 
 <PageTitle>Fake people site</PageTitle>
+<input value="@Seed.ToString()" @oninput="ChangeSeed" type="number"/>
+<select @onchange="args => { Region temp; Region.TryParse((string?)args.Value, out temp); SelectedRegion = temp; RestartRandomData(); }">
+    <option value=0>Poland</option>
+    <option value=1>Germany</option>
+    <option value=2>United States</option>
+</select>
+<table class="table table-striped">
+    <thead>
+    <tr>
+        <td>Index</td>
+        <td>Identifier</td>
+        <td>Full name</td>
+        <td>Address</td>
+        <td>Phone Number</td>
+    </tr>
+    </thead>
+    <tbody>
+        @foreach (var person in People)
+        {
+            <tr>
+                <td>@person.Index.ToString()</td>
+                <td>@person.RandomIdentifier.ToString()</td>
+                <td>@person.FullName</td>
+                <td>@person.Address</td>
+                <td>@person.PhoneNumber</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code
+{
+    private List<PersonModel> People = new List<PersonModel>();
+    private Region SelectedRegion { get; set; }
+    private int Seed { get; set; }
+    private Random rng;
+    private int _currentIndex = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        RestartRandomData();
+    }
+
+    private void RestartRandomData()
+    {
+        rng = new Random(Seed);
+        People.Clear();
+        _currentIndex = 1;
+        for (int i = 0; i < 20; i++)
+        {
+            string CreatedFullName = "";
+            string CreatedAddress = "";
+            string CreatedPhoneNumber = "";
+            switch (SelectedRegion)
+            {
+                case Region.Poland:
+                {
+                    CreatedFullName += PolishData.FirstNames[rng.Next(PolishData.FirstNames.Length)] + " ";
+                    if (rng.Next(5) == 4)
+                    {
+                        CreatedFullName += PolishData.FirstNames[rng.Next(PolishData.FirstNames.Length)] + " ";
+                    }
+                    CreatedFullName += PolishData.LastNames[rng.Next(PolishData.LastNames.Length)];
+                    CreatedAddress = PolishData.Addresses[rng.Next(PolishData.Addresses.Length)];
+                    CreatedPhoneNumber = PolishData.PhoneNumbers[rng.Next(PolishData.PhoneNumbers.Length)];
+                    break;
+                }
+
+                case Region.Germany:
+                {
+                    CreatedFullName += GermanData.FirstNames[rng.Next(GermanData.FirstNames.Length)] + " ";
+                    if (rng.Next(5) == 4)
+                    {
+                        CreatedFullName += GermanData.FirstNames[rng.Next(GermanData.FirstNames.Length)] + " ";
+                    }
+                    CreatedFullName += GermanData.LastNames[rng.Next(GermanData.LastNames.Length)];
+                    CreatedAddress = GermanData.Addresses[rng.Next(GermanData.Addresses.Length)];
+                    CreatedPhoneNumber = GermanData.PhoneNumbers[rng.Next(GermanData.PhoneNumbers.Length)];
+                    break;
+                }
+                case Region.UnitedStates:
+                {
+                    CreatedFullName += AmericanData.FirstNames[rng.Next(AmericanData.FirstNames.Length)] + " ";
+                    if (rng.Next(5) == 4)
+                    {
+                        CreatedFullName += AmericanData.FirstNames[rng.Next(AmericanData.FirstNames.Length)] + " ";
+                    }
+                    CreatedFullName += AmericanData.LastNames[rng.Next(AmericanData.LastNames.Length)];
+                    CreatedAddress = AmericanData.Addresses[rng.Next(AmericanData.Addresses.Length)];
+                    CreatedPhoneNumber = AmericanData.PhoneNumbers[rng.Next(AmericanData.PhoneNumbers.Length)];
+                    break;
+                }
+            }
+            PersonModel person = new PersonModel
+            {
+                Index = _currentIndex,
+                RandomIdentifier = rng.Next(),
+                FullName = CreatedFullName,
+                Address = CreatedAddress,
+                PhoneNumber = CreatedPhoneNumber
+            };
+            People.Add(person);
+            _currentIndex++;
+        }
+        StateHasChanged();
+    }
+
+    private void ChangeSeed(ChangeEventArgs args)
+    {
+        try
+        {
+            Seed = (System.Int32.Parse(((string?)args.Value ?? 0.ToString())));
+        }
+        catch (Exception exception)
+        {
+            Seed = 0;
+        }
+        RestartRandomData();
+    }
+
+}
