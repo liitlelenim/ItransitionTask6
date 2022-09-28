@@ -1,24 +1,50 @@
 ﻿@page "/"
 @using System.Diagnostics
+@using System.Globalization
+@using System.Text
+@using Sve.Blazor.InfiniteScroll.Components
 
 <PageTitle>Fake people site</PageTitle>
-<input value="@Seed.ToString()" @oninput="ChangeSeed" type="number"/>
-<select @onchange="args => { Region temp; Region.TryParse((string?)args.Value, out temp); SelectedRegion = temp; RestartRandomData(); }">
-    <option value=0>Poland</option>
-    <option value=1>Germany</option>
-    <option value=2>United States</option>
-</select>
-<table class="table table-striped">
-    <thead>
-    <tr>
-        <td>Index</td>
-        <td>Identifier</td>
-        <td>Full name</td>
-        <td>Address</td>
-        <td>Phone Number</td>
-    </tr>
-    </thead>
-    <tbody>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm">
+            <label for="seedInput" class="mt-1">Seed:</label>
+            <br/>
+            <input id="seedInput" class="mt-1" value="@Seed.ToString()" @oninput="ChangeSeed" type="number"/>
+            <br/>
+            <button class="btn btn-primary mt-1" @onclick="() => { var rand = new Random(); Seed = rand.Next(); RestartRandomData(); }">Randomize seed</button>
+        </div>
+        <div class="col-sm">
+            <label for="regionInput">Region:</label>
+            <br/>
+            <select id="regionInput" class="mt-1" @onchange="args => { Region temp; Region.TryParse((string?)args.Value, out temp); SelectedRegion = temp; RestartRandomData(); }">
+                <option value=0>Poland</option>
+                <option value=1>Germany</option>
+                <option value=2>United States</option>
+            </select>
+        </div>
+        <div class="col-sm">
+            <label for="errorInput">Error:</label>
+            <br/>
+            <input type="number" step="0.1" min="0" max="1000" value="@Error.ToString().Replace(",", ".")" @oninput="ChangeError" @onchange="ChangeError"/>
+            <br/>
+            <input type="range" step="0.1" min="0" max="10" value="@Error.ToString().Replace(",", ".")" @oninput="ChangeError" @onchange="ChangeError"/>
+        </div>
+    </div>
+</div>
+<hr/>
+<InfiniteScroll ObserverTargetId="endOfTable" ObservableTargetReached="GetNewData">
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <td>Index</td>
+            <td>Identifier</td>
+            <td>Full name</td>
+            <td>Address</td>
+            <td>Phone Number</td>
+        </tr>
+        </thead>
+        <tbody>
         @foreach (var person in People)
         {
             <tr>
@@ -29,15 +55,18 @@
                 <td>@person.PhoneNumber</td>
             </tr>
         }
-    </tbody>
-</table>
+        <div id="endOfTable"></div>
+        </tbody>
+    </table>
+</InfiniteScroll>
 
 @code
 {
     private List<PersonModel> People = new List<PersonModel>();
     private Region SelectedRegion { get; set; }
     private int Seed { get; set; }
-    private Random rng;
+    private float Error { get; set; }
+    private Random rng, rngError;
     private int _currentIndex = 1;
 
     protected override async Task OnInitializedAsync()
@@ -48,8 +77,14 @@
     private void RestartRandomData()
     {
         rng = new Random(Seed);
+        rngError = new Random(Seed);
         People.Clear();
         _currentIndex = 1;
+        GetNewData();
+    }
+
+    private void GetNewData()
+    {
         for (int i = 0; i < 20; i++)
         {
             string CreatedFullName = "";
@@ -103,6 +138,20 @@
                 Address = CreatedAddress,
                 PhoneNumber = CreatedPhoneNumber
             };
+            if (Error is < 1.0f and > 0.0f)
+            {
+                if (rngError.NextSingle() < Error)
+                {
+                    PerformErrorOnPerson(person);
+                }
+            }
+            else if (Error >= 1.0f)
+            {
+                for (int j = 0; j < (int)Error; j++)
+                {
+                    PerformErrorOnPerson(person);
+                }
+            }
             People.Add(person);
             _currentIndex++;
         }
@@ -122,4 +171,113 @@
         RestartRandomData();
     }
 
+    private void ChangeError(ChangeEventArgs args)
+    {
+        try
+        {
+            string value = ((string?)args.Value) ?? "0";
+            value = value.Replace(",", ".");
+            float parsedValue = float.Parse(value, CultureInfo.InvariantCulture.NumberFormat);
+            Error = parsedValue;
+        }
+        catch (Exception exception)
+        {
+        }
+
+        if (Error > 1000f)
+        {
+            Error = 1000.0f;
+        }
+        else if (Error < 0f)
+        {
+            Error = 0f;
+        }
+        RestartRandomData();
+    }
+
+    private void PerformErrorOnPerson(PersonModel person)
+    {
+        int fieldToChange = rngError.Next(3);
+        if (fieldToChange == 0)
+        {
+            person.FullName = MakeRandomError(person.FullName);
+        }
+        else if (fieldToChange == 1)
+        {
+            person.Address = MakeRandomError(person.Address);
+        }
+        else
+        {
+            person.PhoneNumber = MakeRandomError(person.PhoneNumber);
+        }
+    }
+
+    private string MakeRandomError(string str)
+    {
+        int errorToMake = rngError.Next(3);
+        if (str.Length <4)
+        {
+            errorToMake = 1;
+        }
+        else if (str.Length > 100)
+        {
+            errorToMake = 0;
+        }
+        if (errorToMake == 0)
+        {
+            return RemoveRandomCharacter(str);
+        }
+        else if (errorToMake == 1)
+        {
+            return InsertRandomCharacter(str);
+        }
+        else
+        {
+            return SwapRandomCharacter(str);
+        }
+    }
+
+    private string RemoveRandomCharacter(string str)
+    {
+        if (str.Length == 0)
+        {
+            return String.Empty;
+        }
+        return str.Remove(rngError.Next(str.Length), 1);
+    }
+
+    private string InsertRandomCharacter(string str)
+    {
+        string polishAlphabet = "abcdefghijklmnouprstuwxyząęźćżó";
+        string americanAlphabet = "abcdefghijklmnouprstuwxyz";
+        string germanAlphabet = "aabcdefghijklmnouprstuwxyzäöüß";
+
+        if (SelectedRegion == Region.Poland)
+        {
+            str = str.Insert(rngError.Next(str.Length), polishAlphabet[rngError.Next(polishAlphabet.Length)].ToString());
+        }
+        else if (SelectedRegion == Region.Germany)
+        {
+            str = str.Insert(rngError.Next(str.Length), germanAlphabet[rngError.Next(germanAlphabet.Length)].ToString());
+        }
+        else if (SelectedRegion == Region.UnitedStates)
+        {
+            str = str.Insert(rngError.Next(str.Length), americanAlphabet[rngError.Next(americanAlphabet.Length)].ToString());
+        }
+        return str;
+    }
+
+    private string SwapRandomCharacter(string str)
+    {
+        if (str.Length <= 1)
+        {
+            return str;
+        }
+        StringBuilder stringBuilder = new(str);
+        int indexOfCharacterToSwap = rngError.Next(str.Length - 1);
+        char temp = str[indexOfCharacterToSwap];
+        stringBuilder[indexOfCharacterToSwap] = str[indexOfCharacterToSwap + 1];
+        stringBuilder[indexOfCharacterToSwap + 1] = temp;
+        return stringBuilder.ToString();
+    }
 }
